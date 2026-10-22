@@ -21,16 +21,22 @@ let shardTimer = 0;
 let groundOffset = 0;
 let muted = false;
 let audioContext;
+const coinSound = new Audio('coin03.mp3');
+coinSound.preload = 'auto';
+const jumpSound = new Audio('jump12.mp3');
+jumpSound.preload = 'auto';
 const obstacles = [];
 const shards = [];
 const particles = [];
 const stars = Array.from({ length: 44 }, (_, i) => ({ x: (i * 83) % 1000, y: 30 + ((i * 47) % 190), r: i % 5 === 0 ? 2 : 1, a: .18 + (i % 4) * .08 }));
 const playerImage = new Image();
 playerImage.src = 'lm.gif';
-const spriteSheet = new Image();
-spriteSheet.src = 'frame_strip.png';
+const runFrames = Array.from({ length: 8 }, (_, index) => {
+  const image = new Image();
+  image.src = `frames/frame_${String(index).padStart(2, '0')}.png`;
+  return image;
+});
 const player = { x: 95, y: 0, w: 52, h: 52, vy: 0, grounded: true, run: 0 };
-const spriteSheetConfig = { cols: 4, rows: 2, frameWidth: 320, frameHeight: 320, frameCount: 8 };
 
 bestEl.textContent = String(best).padStart(5, '0');
 
@@ -67,7 +73,7 @@ function endGame() {
 }
 function jump() {
   if (state !== 'playing') { startGame(); return; }
-  if (player.grounded) { player.vy = -13.5; player.grounded = false; playTone(420, .05, 'square'); }
+  if (player.grounded) { player.vy = -13.5; player.grounded = false; playJumpSound(); }
 }
 function togglePause() {
   if (state === 'playing') { state = 'paused'; statusText.textContent = '已暫停'; setPanel('風仍在吹', '準備好後，回到這段光裡。', '繼續奔跑'); startPanel.classList.remove('is-hidden'); }
@@ -96,7 +102,7 @@ function update(dt) {
   if (shardTimer <= 0) { spawnShard(); shardTimer = 1250 + Math.random() * 1600; }
   obstacles.forEach(o => o.x -= speed * step); shards.forEach(s => { s.x -= speed * step; s.spin += .08 * step; });
   for (let i = obstacles.length - 1; i >= 0; i--) if (obstacles[i].x + obstacles[i].w < -30) obstacles.splice(i, 1);
-  for (let i = shards.length - 1; i >= 0; i--) { if (shards[i].x < -20) shards.splice(i, 1); else if (hit(player, { x: shards[i].x - shards[i].r, y: shards[i].y - shards[i].r, w: shards[i].r * 2, h: shards[i].r * 2 })) { score += 35; burst(shards[i].x, shards[i].y, '#d5e56d', 8); shards.splice(i, 1); playTone(720, .06, 'sine'); } }
+  for (let i = shards.length - 1; i >= 0; i--) { if (shards[i].x < -20) shards.splice(i, 1); else if (hit(player, { x: shards[i].x - shards[i].r, y: shards[i].y - shards[i].r, w: shards[i].r * 2, h: shards[i].r * 2 })) { score += 35; burst(shards[i].x, shards[i].y, '#d5e56d', 8); shards.splice(i, 1); playCoinSound(); } }
   obstacles.forEach(o => { if (hit(player, { x: o.x + 4, y: o.y + 4, w: o.w - 8, h: o.h - 3 })) endGame(); });
   particles.forEach(p => { p.x += p.vx * step; p.y += p.vy * step; p.vy += .16 * step; p.life -= .025 * step; });
   for (let i = particles.length - 1; i >= 0; i--) if (particles[i].life <= 0) particles.splice(i, 1);
@@ -119,19 +125,14 @@ function drawTerrain() {
   ctx.strokeStyle = 'rgba(233,207,154,.22)'; ctx.lineWidth = 1; for (let x = -groundOffset; x < width; x += 48) { ctx.beginPath(); ctx.moveTo(x, groundY() + 18); ctx.lineTo(x + 20, groundY() + 18); ctx.stroke(); }
 }
 function drawPlayer() {
-  const bob = player.grounded ? Math.sin(player.run) * 1.5 : 0; const x = player.x, y = player.y + bob;
+  const bob = player.grounded ? Math.sin(player.run) * 4.5 : 0; const x = player.x, y = player.y + bob;
 
-  if (spriteSheet.complete && spriteSheet.naturalWidth > 0) {
-    const animSpeed = 5.2;
-    const frameIndex = Math.floor((player.run * animSpeed) % spriteSheetConfig.frameCount);
-    const col = frameIndex % spriteSheetConfig.cols;
-    const row = Math.floor(frameIndex / spriteSheetConfig.cols);
-    const sx = col * spriteSheetConfig.frameWidth;
-    const sy = row * spriteSheetConfig.frameHeight;
-
+  const frameIndex = Math.floor(player.run * 1.1) % runFrames.length;
+  const runFrame = runFrames[frameIndex];
+  if (runFrame.complete && runFrame.naturalWidth > 0) {
     ctx.save();
     ctx.translate(x, y);
-    ctx.drawImage(spriteSheet, sx, sy, spriteSheetConfig.frameWidth, spriteSheetConfig.frameHeight, 0, 0, player.w, player.h);
+    ctx.drawImage(runFrame, 0, 0, player.w, player.h);
     ctx.restore();
     return;
   }
@@ -157,6 +158,8 @@ function drawObstacle(o) {
 function drawShard(s) { ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(s.spin); ctx.fillStyle = '#d5e56d'; ctx.beginPath(); ctx.moveTo(0, -s.r); ctx.lineTo(s.r * .72, 0); ctx.lineTo(0, s.r); ctx.lineTo(-s.r * .72, 0); ctx.closePath(); ctx.fill(); ctx.restore(); }
 function drawParticle(p) { ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 3, 3); ctx.globalAlpha = 1; }
 function loop(time) { const dt = Math.min(34, time - lastTime || 16); lastTime = time; update(dt); draw(); animationId = requestAnimationFrame(loop); }
+function playCoinSound() { if (muted) return; coinSound.currentTime = 0; coinSound.play().catch(() => {}); }
+function playJumpSound() { if (muted) return; jumpSound.currentTime = 0; jumpSound.play().catch(() => {}); }
 function playTone(freq, duration, type) { if (muted) return; audioContext ||= new (window.AudioContext || window.webkitAudioContext)(); const oscillator = audioContext.createOscillator(); const gain = audioContext.createGain(); oscillator.type = type; oscillator.frequency.value = freq; gain.gain.setValueAtTime(.035, audioContext.currentTime); gain.gain.exponentialRampToValueAtTime(.001, audioContext.currentTime + duration); oscillator.connect(gain).connect(audioContext.destination); oscillator.start(); oscillator.stop(audioContext.currentTime + duration); }
 
 startButton.addEventListener('click', () => state === 'paused' ? togglePause() : startGame());
