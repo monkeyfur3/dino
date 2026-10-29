@@ -15,7 +15,7 @@ let width = 0, height = 0, dpr = 1, lastTime = 0, animationId;
 let state = 'ready';
 let score = 0;
 let best = Number(localStorage.getItem('wildlight-best') || 0);
-let speed = 6;
+let speed = 4.8;
 let spawnTimer = 0;
 let shardTimer = 0;
 let groundOffset = 0;
@@ -55,7 +55,7 @@ function setPanel(title, copy, button) {
   panelTitle.textContent = title; panelCopy.textContent = copy; startButton.querySelector('span').textContent = button;
 }
 function reset() {
-  score = 0; speed = 6; spawnTimer = 520; shardTimer = 900; groundOffset = 0;
+  score = 0; speed = 4.8; spawnTimer = 520; shardTimer = 900; groundOffset = 0;
   obstacles.length = 0; shards.length = 0; particles.length = 0;
   player.vy = 0; player.grounded = true; player.run = 0; player.y = groundY() - player.h;
   scoreEl.textContent = formatScore(score); speedText.textContent = '速度 1.0x';
@@ -80,9 +80,10 @@ function togglePause() {
   else if (state === 'paused') { state = 'playing'; startPanel.classList.add('is-hidden'); statusText.textContent = '奔跑中'; }
 }
 function spawnObstacle() {
-  const type = Math.random() > .52 ? 'spire' : 'bush';
-  const h = type === 'spire' ? 39 + Math.random() * 19 : 24 + Math.random() * 13;
-  obstacles.push({ x: width + 30, y: groundY() - h, w: type === 'spire' ? 25 : 43, h, type });
+  const type = Math.random() > .5 ? 'rock' : 'tree';
+  const w = type === 'rock' ? 30 + Math.random() * 14 : 30 + Math.random() * 8;
+  const h = type === 'rock' ? 18 + Math.random() * 10 : 44 + Math.random() * 18;
+  obstacles.push({ x: width + 30, y: groundY() - h, w, h, type });
 }
 function spawnShard() {
   shards.push({ x: width + 20, y: groundY() - 85 - Math.random() * 80, r: 7, spin: Math.random() * 6 });
@@ -93,7 +94,7 @@ function burst(x, y, color, amount) {
 function update(dt) {
   if (state !== 'playing') return;
   const step = dt / 16.67;
-  score += speed * .014 * step; speed = Math.min(11, 6 + score / 480);
+  score += speed * .014 * step; speed = Math.min(8.8, 4.8 + score / 600);
   groundOffset = (groundOffset + speed * step) % 48; player.run += .18 * step;
   player.vy += .7 * step; player.y += player.vy * step;
   if (player.y >= groundY() - player.h) { player.y = groundY() - player.h; player.vy = 0; player.grounded = true; }
@@ -106,33 +107,73 @@ function update(dt) {
   obstacles.forEach(o => { if (hit(player, { x: o.x + 4, y: o.y + 4, w: o.w - 8, h: o.h - 3 })) endGame(); });
   particles.forEach(p => { p.x += p.vx * step; p.y += p.vy * step; p.vy += .16 * step; p.life -= .025 * step; });
   for (let i = particles.length - 1; i >= 0; i--) if (particles[i].life <= 0) particles.splice(i, 1);
-  scoreEl.textContent = formatScore(score); speedText.textContent = `速度 ${(speed / 6).toFixed(1)}x`;
+  scoreEl.textContent = formatScore(score); speedText.textContent = `速度 ${(speed / 4.8).toFixed(1)}x`;
 }
 function hit(a, b) { return a.x + 7 < b.x + b.w && a.x + a.w - 8 > b.x && a.y + 6 < b.y + b.h && a.y + a.h - 3 > b.y; }
 function draw() {
   ctx.clearRect(0, 0, width, height);
-  const sky = ctx.createLinearGradient(0, 0, 0, height); sky.addColorStop(0, '#294246'); sky.addColorStop(1, '#738579'); ctx.fillStyle = sky; ctx.fillRect(0, 0, width, height);
+  const sky = ctx.createLinearGradient(0, 0, 0, height); sky.addColorStop(0, '#101d35'); sky.addColorStop(.58, '#244c55'); sky.addColorStop(1, '#52765b'); ctx.fillStyle = sky; ctx.fillRect(0, 0, width, height);
   drawSky(); drawTerrain(); shards.forEach(drawShard); obstacles.forEach(drawObstacle); drawPlayer(); particles.forEach(drawParticle);
 }
 function drawSky() {
-  ctx.fillStyle = '#e9cf9a'; ctx.globalAlpha = .82; ctx.beginPath(); ctx.arc(width * .78, height * .21, 44, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
-  stars.forEach(s => { ctx.fillStyle = `rgba(239,242,231,${s.a})`; ctx.fillRect((s.x / 1000) * width, s.y, s.r, s.r); });
-  ctx.fillStyle = 'rgba(26,52,53,.34)'; ctx.beginPath(); ctx.moveTo(0, groundY() - 75); for (let x = 0; x <= width + 100; x += 100) ctx.lineTo(x, groundY() - 72 - ((x * .73) % 65)); ctx.lineTo(width, groundY()); ctx.lineTo(0, groundY()); ctx.fill();
+  const moonGlow = ctx.createRadialGradient(width * .78, height * .2, 8, width * .78, height * .2, 115);
+  moonGlow.addColorStop(0, 'rgba(185,245,219,.34)'); moonGlow.addColorStop(1, 'rgba(185,245,219,0)');
+  ctx.fillStyle = moonGlow; ctx.fillRect(0, 0, width, height * .55);
+  ctx.fillStyle = '#d6f4d8'; ctx.globalAlpha = .9; ctx.beginPath(); ctx.arc(width * .78, height * .2, 29, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+  stars.forEach(s => { ctx.fillStyle = `rgba(205,245,229,${s.a})`; ctx.fillRect((s.x / 1000) * width, s.y, s.r, s.r); });
+  drawForestLayer(groundY() + 24, 76, 125, '#193d45');
+  drawForestLayer(groundY() + 18, 108, 175, '#15383b');
+  drawForestLayer(groundY() + 12, 146, 225, '#12302f');
+  ctx.fillStyle = 'rgba(142,232,193,.72)';
+  for (let i = 0; i < 12; i++) {
+    const x = (i * 131 + width) % width;
+    const y = groundY() - 42 - (i * 29 % 125);
+    ctx.globalAlpha = .35 + (i % 3) * .2; ctx.beginPath(); ctx.arc(x, y, i % 4 === 0 ? 2 : 1.3, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+function drawForestLayer(baseY, spacing, maxHeight, color) {
+  ctx.fillStyle = color;
+  for (let x = -spacing; x < width + spacing; x += spacing) {
+    const index = Math.floor(x / spacing);
+    const treeWidth = spacing * (.55 + Math.abs(index * 17 % 5) * .06);
+    const treeHeight = maxHeight * (.7 + Math.abs(index * 37 % 11) * .03);
+    const center = x + treeWidth / 2;
+    ctx.beginPath();
+    ctx.moveTo(center, baseY - treeHeight);
+    ctx.lineTo(center - treeWidth * .17, baseY - treeHeight * .55);
+    ctx.lineTo(center - treeWidth * .08, baseY - treeHeight * .55);
+    ctx.lineTo(x, baseY - treeHeight * .12);
+    ctx.lineTo(center - treeWidth * .2, baseY - treeHeight * .12);
+    ctx.lineTo(x + treeWidth * .12, baseY);
+    ctx.lineTo(x + treeWidth * .88, baseY);
+    ctx.lineTo(center + treeWidth * .2, baseY - treeHeight * .12);
+    ctx.lineTo(x + treeWidth, baseY - treeHeight * .12);
+    ctx.lineTo(center + treeWidth * .08, baseY - treeHeight * .55);
+    ctx.lineTo(center + treeWidth * .17, baseY - treeHeight * .55);
+    ctx.closePath(); ctx.fill();
+  }
 }
 function drawTerrain() {
-  ctx.fillStyle = '#243638'; ctx.fillRect(0, groundY(), width, height - groundY());
-  ctx.strokeStyle = '#d5e56d'; ctx.globalAlpha = .65; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, groundY()); ctx.lineTo(width, groundY()); ctx.stroke(); ctx.globalAlpha = 1;
-  ctx.strokeStyle = 'rgba(233,207,154,.22)'; ctx.lineWidth = 1; for (let x = -groundOffset; x < width; x += 48) { ctx.beginPath(); ctx.moveTo(x, groundY() + 18); ctx.lineTo(x + 20, groundY() + 18); ctx.stroke(); }
+  ctx.fillStyle = '#102b29'; ctx.fillRect(0, groundY(), width, height - groundY());
+  ctx.strokeStyle = '#8edda4'; ctx.globalAlpha = .7; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, groundY()); ctx.lineTo(width, groundY()); ctx.stroke(); ctx.globalAlpha = 1;
+  ctx.strokeStyle = 'rgba(149,211,148,.32)'; ctx.lineWidth = 1;
+  for (let x = -groundOffset; x < width; x += 48) {
+    ctx.beginPath(); ctx.moveTo(x, groundY() + 5); ctx.lineTo(x + 4, groundY() - 2); ctx.lineTo(x + 8, groundY() + 5); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + 15, groundY() + 22); ctx.lineTo(x + 34, groundY() + 22); ctx.stroke();
+  }
 }
 function drawPlayer() {
   const bob = player.grounded ? Math.sin(player.run) * 4.5 : 0; const x = player.x, y = player.y + bob;
 
   const frameIndex = Math.floor(player.run * 1.1) % runFrames.length;
-  const runFrame = runFrames[frameIndex];
-  if (runFrame.complete && runFrame.naturalWidth > 0) {
+  const animationFrame = player.grounded
+    ? runFrames[frameIndex]
+    : runFrames[Math.abs(player.vy) < 1.5 ? 3 : player.vy > 0 ? 5 : 4];
+  if (animationFrame.complete && animationFrame.naturalWidth > 0) {
     ctx.save();
     ctx.translate(x, y);
-    ctx.drawImage(runFrame, 0, 0, player.w, player.h);
+    ctx.drawImage(animationFrame, 0, 0, player.w, player.h);
     ctx.restore();
     return;
   }
@@ -150,9 +191,21 @@ function drawPlayer() {
   ctx.fillStyle = '#172326'; ctx.fillRect(29, 8, 4, 4); ctx.fillStyle = '#f7e8bc'; ctx.fillRect(15, 17, 10, 3); ctx.restore();
 }
 function drawObstacle(o) {
-  ctx.save(); ctx.translate(o.x, o.y); ctx.fillStyle = o.type === 'spire' ? '#d5e56d' : '#b8cf85';
-  if (o.type === 'spire') { ctx.beginPath(); ctx.moveTo(0, o.h); ctx.lineTo(6, 13); ctx.lineTo(12, 18); ctx.lineTo(17, 0); ctx.lineTo(25, o.h); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#243638'; ctx.fillRect(11, 25, 3, 6); }
-  else { ctx.beginPath(); ctx.arc(14, o.h, 14, Math.PI, 0); ctx.arc(31, o.h, 13, Math.PI, 0); ctx.rect(2, o.h - 2, 39, 5); ctx.fill(); }
+  ctx.save(); ctx.translate(o.x, o.y);
+  if (o.type === 'rock') {
+    ctx.fillStyle = '#87978b'; ctx.beginPath();
+    ctx.moveTo(0, o.h); ctx.lineTo(o.w * .12, o.h * .48); ctx.lineTo(o.w * .38, o.h * .18);
+    ctx.lineTo(o.w * .68, o.h * .08); ctx.lineTo(o.w * .94, o.h * .53); ctx.lineTo(o.w, o.h); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(217,239,204,.42)'; ctx.beginPath();
+    ctx.moveTo(o.w * .12, o.h * .48); ctx.lineTo(o.w * .38, o.h * .18); ctx.lineTo(o.w * .48, o.h * .52); ctx.closePath(); ctx.fill();
+  } else {
+    ctx.fillStyle = '#765b47'; ctx.fillRect(o.w * .42, o.h * .48, o.w * .16, o.h * .52);
+    ctx.fillStyle = '#75ae78'; ctx.beginPath();
+    ctx.arc(o.w * .5, o.h * .36, o.w * .29, 0, Math.PI * 2);
+    ctx.arc(o.w * .29, o.h * .48, o.w * .2, 0, Math.PI * 2);
+    ctx.arc(o.w * .71, o.h * .48, o.w * .2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#b2e58d'; ctx.beginPath(); ctx.arc(o.w * .39, o.h * .32, 2.5, 0, Math.PI * 2); ctx.fill();
+  }
   ctx.restore();
 }
 function drawShard(s) { ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(s.spin); ctx.fillStyle = '#d5e56d'; ctx.beginPath(); ctx.moveTo(0, -s.r); ctx.lineTo(s.r * .72, 0); ctx.lineTo(0, s.r); ctx.lineTo(-s.r * .72, 0); ctx.closePath(); ctx.fill(); ctx.restore(); }
